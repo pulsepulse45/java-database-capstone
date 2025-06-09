@@ -1,63 +1,96 @@
-/*
-  Import the base API URL from the config file
-  Create a constant named PATIENT_API by appending '/patient' to the base URL
+//import { API_BASE_URL } from "../config/config.js";
+const PATIENT_API = '/patient'
 
 
-  Function  patientSignup
-  Purpose  Register a new patient in the system
+//For creating a patient in db
+export async function patientSignup(data){
+  try {
+    const response = await fetch(`${PATIENT_API }` ,
+      {
+        method : "POST",
+        headers : {
+          "Content-type" : "application/json"
+        },
+        body : JSON.stringify(data)
+      }
+    );
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message);
+    }
+    return { success : response.ok , message : result.message}
+  }
+  catch(error) {
+    console.error("Error :: patientSignup :: " , error)
+    return { success: false , message: error.message }
+  }
+}
 
-     Send a POST request to PATIENT_API with 
-    - Headers  Content-Type set to 'application/json'
-    - Body  JSON.stringify(data) where data includes patient details
+//For logging in patient
+export async function patientLogin(data){
+  console.log("patientLogin :: ", data)
+  return await fetch(`${PATIENT_API}/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+    
+    
+}
 
-    Convert the response to JSON and check for success
-    - If response is not OK, throw an error with the message from the server
+// For getting patient data (name ,id , etc ). Used in booking appointments
+export async function getPatientData(token){
+  try {
+    const response = await fetch(`${PATIENT_API}/${token}`);
+    const data = await response.json();
+    if (response.ok) return data.patient;
+    return null;
+  } catch (error) {
+    console.error("Error fetching patient details:", error);
+    return null;
+  }
+}
 
-    Return an object with 
-    - success  true or false
-    - message  feedback from the server
+// the Backend API for fetching the patient record(visible in Doctor Dashboard) and Appointments (visible in Patient Dashboard) are same based on user(patient/doctor).
+export async function getPatientAppointments(id, token ,user) {
+  try {
+    const response = await fetch(`${PATIENT_API}/${id}/${user}/${token}`);
+    const data = await response.json();
+    console.log(data.appointments)  
+    if(response.ok){
+         return data.appointments;
+    }
+    return null;
+  }
+  catch(error) {
+    console.error("Error fetching patient details:", error);
+    return null;
+  }
+}
 
-    Use try-catch to handle network or API errors
-    - Log errors and return a failure response with the error message
-
-
-  Function  patientLogin
-  Purpose  Authenticate a patient with email and password
-
-     Send a POST request to `${PATIENT_API}/login`
-    - Include appropriate headers and the login data in JSON format
-
-    Return the raw fetch response to be handled where the function is called
-    - The caller will check the response status and process the token or error
-
-
-  Function  getPatientData
-  Purpose  Fetch basic patient information using a token
-
-     Send a GET request to `${PATIENT_API}/${token}`
-    Parse the response and return the 'patient' object if response is OK
-    If there's an error or the response is not OK, return null
-    Catch and log any network or server errors
-
-
-  Function  getPatientAppointments
-  Purpose  Retrieve appointment data for a specific user (doctor or patient)
-
-     Send a GET request to `${PATIENT_API}/${id}/${user}/${token}`
-    - 'id' is the user’s ID, 'user' is either 'doctor' or 'patient', and 'token' is for auth
-
-    Parse the response and return the 'appointments' array if successful
-    If the response fails or an error occurs, return null
-    Log any errors for debugging
-
-
-  Function  filterAppointments
-  Purpose  Retrieve filtered appointments based on condition and patient name
-
-   Send a GET request to `${PATIENT_API}/filter/${condition}/${name}/${token}`
-    - This allows filtering based on status or search criteria
-
-   Parse the response if it's OK and return the data
-   If the response fails, return an empty appointments array
-   Use a try-catch to handle errors gracefully and notify the user
-*/
+  export async function filterAppointments(condition ,name ,token) {
+    try {
+      const response = await fetch(`${PATIENT_API}/filter/${condition}/${name}/${token}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+  
+      if (response.ok) {
+        const data = await response.json();
+        return data; 
+        
+      } else {
+        console.error("Failed to fetch doctors:", response.statusText);
+        return { appointments: [] };
+        
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Something went wrong!");
+      return { appointments : [] }; 
+    }
+  }
