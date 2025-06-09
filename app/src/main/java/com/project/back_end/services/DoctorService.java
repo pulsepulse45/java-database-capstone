@@ -81,7 +81,7 @@ public class DoctorService {
 // 16. **filterDoctorBySpecility Method**:
 //    - Filters doctors based on their specialty.
 //    - This method fetches all doctors matching the specified specialty and returns them.
-//    - Instruction: Make sure the filtering logic works for case-insensitive specialty matching.
+//    - Instruction: Make sure th filtering logic works for case-insensitive specialty matching.
 
 // 17. **filterDoctorsByTime Method**:
 //    - Filters all doctors based on their availability during a specific time period (AM/PM).
