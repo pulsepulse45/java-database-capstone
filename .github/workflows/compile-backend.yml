@@ -1,0 +1,45 @@
+name: Compile Java Backend
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  compile-backend:
+    runs-on: ubuntu-latest
+    name: Compile Backend Code
+    timeout-minutes: 10
+    steps:
+      # Checkout the repository
+      - uses: actions/checkout@v4
+
+      # Set up JDK 17
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Cache Maven dependencies to speed up builds
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # Make Maven Wrapper executable
+      - name: Make Maven Wrapper executable
+        run: chmod +x app/mvnw
+
+      # Compile the code with Maven
+      - name: Compile with Maven
+        run: |
+          cd app
+          ./mvnw clean compile -e -X
