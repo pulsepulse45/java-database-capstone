@@ -1,64 +1,137 @@
-/*
-  Import functions to fetch all doctors, filter doctors, and book an appointment
-  Import the function to create doctor cards for display
+import { getDoctors } from './services/doctorServices.js';
+import { createDoctorCard } from './components/doctorCard.js';
+import { filterDoctors } from './services/doctorServices.js';
+import { bookAppointment } from './services/appointmentRecordService.js';
 
 
-  When the page is fully loaded (DOMContentLoaded):
-    - Call loadDoctorCards() to fetch and display all doctors initially
+document.addEventListener("DOMContentLoaded", () => {
+  loadDoctorCards();
+});
+
+function loadDoctorCards() {
+  getDoctors()
+    .then(doctors => {
+      const contentDiv = document.getElementById("content");
+      contentDiv.innerHTML = ""; 
+
+      doctors.forEach(doctor => {
+        const card = createDoctorCard(doctor);
+        contentDiv.appendChild(card);
+      });
+    })
+    .catch(error => {
+      console.error("Failed to load doctors:", error);
+    });
+}
+
+export function showBookingOverlay(e, doctor, patient) {
+  const button = e.target;
+  const rect = button.getBoundingClientRect();
+  console.log(patient.name)
+  console.log(patient)
+  const ripple = document.createElement("div");
+  ripple.classList.add("ripple-overlay");
+  ripple.style.left = `${e.clientX}px`;
+  ripple.style.top = `${e.clientY}px`;
+  document.body.appendChild(ripple);
+
+  setTimeout(() => ripple.classList.add("active"), 50);
+
+  const modalApp = document.createElement("div");
+  modalApp.classList.add("modalApp");
+
+  modalApp.innerHTML = `
+    <h2>Book Appointment</h2>
+    <input class="input-field" type="text" value="${patient.name}" disabled />
+    <input class="input-field" type="text" value="${doctor.name}" disabled />
+    <input class="input-field" type="text" value="${doctor.specialty}" disabled/>
+    <input class="input-field" type="email" value="${doctor.email}" disabled/>
+    <input class="input-field" type="date" id="appointment-date" />
+    <select class="input-field" id="appointment-time">
+      <option value="">Select time</option>
+      ${doctor.availableTimes.map(t => `<option value="${t}">${t}</option>`).join('')}
+    </select>
+    <button class="confirm-booking">Confirm Booking</button>
+  `;
+
+  document.body.appendChild(modalApp);
+
+  setTimeout(() => modalApp.classList.add("active"), 600);
+
+  modalApp.querySelector(".confirm-booking").addEventListener("click", async () => {
+    const date = modalApp.querySelector("#appointment-date").value;
+    const time = modalApp.querySelector("#appointment-time").value;
+    const token = localStorage.getItem("token");
+    const startTime = time.split('-')[0];
+    const appointment = {
+      doctor: { id: doctor.id },
+      patient: { id: patient.id },
+      appointmentTime: `${date}T${startTime}:00`,
+      status: 0
+    };
+  
+
+    const { success, message } = await bookAppointment(appointment, token);
+
+    if (success) {
+      alert("Appointment Booked successfully");
+      ripple.remove();
+      modalApp.remove();
+    } else {
+      alert("❌ Failed to book an appointment :: " + message);
+    }
+  });
+}
+
+  
+
+// Filter Input
+document.getElementById("searchBar").addEventListener("input", filterDoctorsOnChange);
+document.getElementById("filterTime").addEventListener("change", filterDoctorsOnChange);
+document.getElementById("filterSpecialty").addEventListener("change", filterDoctorsOnChange);
 
 
-  Function: loadDoctorCards
-  Purpose: Fetch all doctors from the backend and display them as cards
 
-   Call getDoctors() to retrieve doctor data
-   Clear any existing content from the container div
-   Loop through each doctor and:
-     - Create a visual card using createDoctorCard()
-     - Append it to the content container
-   Handle errors (e.g., show console message if fetch fails)
+function filterDoctorsOnChange() {
+  const searchBar = document.getElementById("searchBar").value.trim(); 
+  const filterTime = document.getElementById("filterTime").value;  
+  const filterSpecialty = document.getElementById("filterSpecialty").value;  
 
+  
+  const name = searchBar.length > 0 ? searchBar : null;  
+  const time = filterTime.length > 0 ? filterTime : null;
+  const specialty = filterSpecialty.length > 0 ? filterSpecialty : null;
 
-  Function: showBookingOverlay
-  Purpose: Display a modal to book an appointment with a selected doctor
+  filterDoctors(name , time ,specialty)
+    .then(response => {
+      const doctors = response.doctors;
+      const contentDiv = document.getElementById("content");
+      contentDiv.innerHTML = ""; 
 
-   Create a ripple effect at the clicked location for UI feedback
-   Build a modal with:
-     - Pre-filled doctor and patient details (disabled inputs)
-     - Date picker for appointment
-     - Dropdown menu of available time slots
+      if (doctors.length > 0) {
+        console.log(doctors);
+        doctors.forEach(doctor => {
+          const card = createDoctorCard(doctor);
+          contentDiv.appendChild(card);
+        });
+      } else {
+        contentDiv.innerHTML = "<p>No doctors found with the given filters.</p>";
+        console.log("Nothing");
+      }
+    })
+    .catch(error => {
+      console.error("Failed to filter doctors:", error);
+      alert("❌ An error occurred while filtering doctors.");
+    });
+}
 
-   Append the modal to the document body and animate it
-   Add click listener to the "Confirm Booking" button:
-     - Collect selected date and time
-     - Format the time (extract start time for appointment)
-     - Prepare the appointment object with doctor, patient, and datetime
-     - Use bookAppointment() to send the request to the backend
-     - On success: Show alert, remove modal and ripple
-     - On failure: Show error message to the user
+export function renderDoctorCards(doctors) {
+  const contentDiv = document.getElementById("content");
+      contentDiv.innerHTML = ""; 
 
-
-  Add event listeners to:
-    - The search bar (on input)
-    - Time filter dropdown (on change)
-    - Specialty filter dropdown (on change)
-
-  All inputs call filterDoctorsOnChange() to apply the filters dynamically
-
-
-  Function: filterDoctorsOnChange
-  Purpose: Fetch and display doctors based on user-selected filters
-
-   Read input values (name, time, specialty)
-   Set them to 'null' if empty, as expected by backend
-   Call filterDoctors(name, time, specialty)
-   If doctors are returned:
-     - Clear previous content
-     - Create and display a card for each doctor
-   If no results found, show a message: "No doctors found with the given filters."
-   Handle and display any fetch errors
-
-
-  Function: renderDoctorCards
-  Purpose: Render a list of doctor cards passed as an argument
-  Used to dynamically render pre-filtered results or external data
-*/
+      doctors.forEach(doctor => {
+        const card = createDoctorCard(doctor);
+        contentDiv.appendChild(card);
+      });
+   
+}

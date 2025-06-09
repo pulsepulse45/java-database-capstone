@@ -1,30 +1,47 @@
-/* 
- Import modules:
-   - getPatientAppointments: Fetches all appointments of a given patient.
-   - createPatientRecordRow: Creates a table row for each appointment entry.
+import { getPatientAppointments } from "./services/patientServices.js";
+import { createPatientRecordRow } from './components/patientRecordRow.js';
 
- DOM element references:
-   - tableBody: The body of the table where patient appointments will be listed.
-   - token: Retrieved from localStorage to authorize the API call.
-   - URL parameters: Used to extract the specific `patientId` and `doctorId` to filter data accordingly.
+const tableBody = document.getElementById("patientTableBody");
+const token = localStorage.getItem("token");
 
- Page Initialization:
-   - On DOMContentLoaded, call `initializePage()` to load and display data.
+const urlParams = new URLSearchParams(window.location.search);
+const patientId = urlParams.get("id");
+const doctorId = urlParams.get("doctorId");
 
- Fetch appointments:
-   - Ensure the user token exists.
-   - Call `getPatientAppointments()` with the patient ID and token, specifying the user as `"doctor"` to access the correct backend logic.
-   - Filter appointments further by checking if `doctorId` matches the one in the query string.
+document.addEventListener("DOMContentLoaded", initializePage);
 
- Render Appointments:
-   - Clear any previous content in the table.
-   - Always make the "Actions" column visible in the table.
-   - If no appointments exist, show a "No Appointments Found" message.
-   - Otherwise, loop through filtered data and render each appointment row using `createPatientRecordRow()`.
+async function initializePage() {
+  try {
+    if (!token) throw new Error("No token found");
 
- Error Handling:
-   - All major operations are wrapped in try-catch blocks.
-   - Errors are logged to the console for debugging.
-   - Alerts are used to notify the user of failure to load data.
+    const appointmentData = await getPatientAppointments(patientId, token, "doctor") || [];
 
-*/
+    // Filter by both patientId and doctorId
+    const filteredAppointments = appointmentData.filter(app => 
+      app.doctorId == doctorId);
+    console.log(filteredAppointments)
+    renderAppointments(filteredAppointments);
+  } catch (error) {
+    console.error("Error loading appointments:", error);
+    alert("❌ Failed to load your appointments.");
+  }
+}
+
+function renderAppointments(appointments) {
+  tableBody.innerHTML = "";
+
+  const actionTh = document.querySelector("#patientTable thead tr th:last-child");
+  if (actionTh) {
+    actionTh.style.display = "table-cell"; // Always show "Actions" column
+  }
+
+  if (!appointments.length) {
+    tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No Appointments Found</td></tr>`;
+    return;
+  }
+
+  appointments.forEach(appointment => {
+    const row = createPatientRecordRow(appointment);
+    tableBody.appendChild(row);
+  });
+}

@@ -1,48 +1,105 @@
-/* 
- Import the necessary service functions:
-   - getPatientAppointments: To fetch all appointments of a patient.
-   - getPatientData: To retrieve patient profile data using a stored token.
-   - filterAppointments: To filter the patient's appointments based on criteria.
+import { getPatientAppointments, getPatientData, filterAppointments } from "./services/patientServices.js";
 
- Initialize important variables:
-   - tableBody: Reference the table body element where appointments will be displayed.
-   - token: Retrieve the authentication token from localStorage.
-   - allAppointments: Array to store all fetched appointment data.
-   - filteredAppointments: Array to store filtered results when searching.
-   - patientId: To hold the ID of the current patient once retrieved.
+const tableBody = document.getElementById("patientTableBody");
+const token = localStorage.getItem("token");
 
- Set up the page when it loads:
-   - Wait for the DOM to fully load using the 'DOMContentLoaded' event.
-   - Ensure a token exists; if not, stop the execution.
-   - Use getPatientData() to fetch the current patient's details.
-   - Store the returned patient ID for filtering.
-   - Use getPatientAppointments() to fetch all appointments linked to this patient.
-   - Filter the results by matching the patientId.
-   - Pass the filtered list to the renderAppointments() function.
+let allAppointments = [];
+let filteredAppointments = [];
+let patientId = null; 
 
- Display appointments in a table:
-   - Clear existing rows in the table body.
-   - Always show the “Actions” column by modifying its CSS if needed.
-   - If no appointments exist, display a single row message like “No Appointments Found.”
-   - If appointments exist:
-     - Loop through each appointment.
-     - Display columns: Patient name ("You"), Doctor name, Date, Time, and Action.
-     - If the appointment is editable (status 0), add an edit icon or button.
-     - Attach an event listener to the edit icon to allow editing the appointment.
+document.addEventListener("DOMContentLoaded", initializePage);
 
- Redirect user to edit their appointment:
-   - When the edit icon is clicked:
-     - Build a URL with query parameters including: 
-       appointmentId, patientId, patientName, doctorName, doctorId, date, and time.
-     - Redirect the user to updateAppointment.html with the prepared query string.
+async function initializePage() {
+  try {
+    if (!token) throw new Error("No token found");
 
-Add filtering functionality for search and dropdown:
-   - Set up listeners on:
-     - A search bar to search by doctor or name.
-     - A filter dropdown (e.g., allAppointments, past, upcoming).
-   - When a filter changes:
-     - Use filterAppointments() service with the search and filter values.
-     - Again, ensure only appointments for the current patientId are included.
-     - Re-render the filtered appointments using renderAppointments().
+    const patient = await getPatientData(token);
+    if (!patient) throw new Error("Failed to fetch patient details");
 
-*/
+    patientId = Number(patient.id);
+
+    const appointmentData = await getPatientAppointments(patientId, token ,"patient") || [];
+    allAppointments = appointmentData.filter(app => app.patientId === patientId);
+
+    renderAppointments(allAppointments);
+  } catch (error) {
+    console.error("Error loading appointments:", error);
+    alert("❌ Failed to load your appointments.");
+  }
+}
+
+function renderAppointments(appointments) {
+  tableBody.innerHTML = "";
+
+  const actionTh = document.querySelector("#patientTable thead tr th:last-child");
+  if (actionTh) {
+    actionTh.style.display = "table-cell"; // Always show "Actions" column
+  }
+
+  if (!appointments.length) {
+    tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No Appointments Found</td></tr>`;
+    return;
+  }
+
+  appointments.forEach(appointment => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${appointment.patientName || "You"}</td>
+      <td>${appointment.doctorName}</td>
+      <td>${appointment.appointmentDate}</td>
+      <td>${appointment.appointmentTimeOnly}</td>
+      <td>${appointment.status == 0 ? `<img src="../assets/images/edit/edit.png" alt="Edit" class="prescription-btn" data-id="${appointment.patientId}">` : "-"}</td>
+    `;
+
+    if (appointment.status == 0) {
+      const actionBtn = tr.querySelector(".prescription-btn");
+      actionBtn?.addEventListener("click", () => redirectToUpdatePage(appointment));
+    }
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function redirectToUpdatePage(appointment) {
+  // Prepare the query parameters
+  const queryString = new URLSearchParams({
+    appointmentId: appointment.id,
+    patientId: appointment.patientId,
+    patientName: appointment.patientName || "You",
+    doctorName: appointment.doctorName,
+    doctorId: appointment.doctorId,
+    appointmentDate: appointment.appointmentDate,
+    appointmentTime: appointment.appointmentTimeOnly,
+  }).toString();
+
+  // Redirect to the update page with the query string
+  setTimeout(() => {
+    window.location.href = `/pages/updateAppointment.html?${queryString}`;
+  }, 100);
+}
+
+
+// Search and Filter Listeners
+document.getElementById("searchBar").addEventListener("input", handleFilterChange);
+document.getElementById("appointmentFilter").addEventListener("change", handleFilterChange);
+
+async function handleFilterChange() {
+  const searchBarValue = document.getElementById("searchBar").value.trim();
+  const filterValue = document.getElementById("appointmentFilter").value;
+
+  const name = searchBarValue || null;
+  const condition = filterValue === "allAppointments"? null : filterValue || null;
+
+  try {
+    const response = await filterAppointments(condition, name, token);
+    const appointments = response?.appointments || [];
+    filteredAppointments = appointments.filter(app => app.patientId === patientId);
+
+    renderAppointments(filteredAppointments);
+  } catch (error) {
+    console.error("Failed to filter appointments:", error);
+    alert("❌ An error occurred while filtering appointments.");
+  }
+}
+
+  
